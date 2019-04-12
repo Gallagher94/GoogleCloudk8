@@ -1,0 +1,336 @@
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+kind: POD || Service
+
+Both of these config files will be sent to the KubeCtl,KubeClt will interpret
+these and create an 'object' out of each file.
+
+'Objects' are a 'thing' that exists within the K8 cluster. 
+These 'things' could be Pods || servies || ReplicaController || StatefulSet
+
+The kind keyword represents the type of 'thing' we want to create.
+
+client-pod.yml uses the kind:Pod whereas
+client-node-port.yml uses the kind:Service
+
+Pod is used to run a contianer.
+Service is going to set up networking.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+apiVersion: v1
+
+Scopes/limits the type of objects that we ancreate 
+within our configuration files.
+By selecting v1, we gain access to predefined object types that our config file
+can create. i.e Pods || servies || ReplicaController || StatefulSet etc...
+
+If we used app/v1 then we get different types of objects we can create.
+Best to look at what Objects we need to create, check the docs for what 
+apiVersion has these objects - and use that.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+Pod
+
+We ran the command miniKube start - this created a new VM on your computer. 
+This Vm is refered to as a node. This node will be used by k8s to run a 
+bunch of objects. A basic object type is a pod.
+
+When we load up this config file to KubeCtl, it will ceate a pod within 
+the VM on your machine or the node.
+A Pod is refered to as a grouping of containers with a very common purpose.
+i.e nginX container running in a pod, running in a node.
+
+In k8s we cannot run one container on its own. 
+The smallest thing we can deploy is a Pod.
+So we will always deploy contianers within a Pod.
+
+A Pod is meant to allow the grouping of containers that must be deployed and 
+runing together, dont just out all containers in same pod.
+
+A good example of running a pod with multiple containers is when we have 
+3 containers Postgress || Logger || backup-manager
+the logger cannot work if the Postgress container is dead.
+the backup-manager cannot work if the Logger is down.
+Niether can work if the postgress container is dead.
+This is why we would have all 3 of these in the same Pod. 
+Loggin containers should be inside the same Pod as its monitering container.
+
+
+
+        node
+  - - - - - - - - - - - - - -
+  -         Pod             -
+  -   - - - - - - - -  -    -
+  -   -                -    -
+  -   -  -  - - - - - - -   -
+  -   -  -  nginx    -  -   -
+  -   -  - Container - -    -    
+  -   -  - - - - -  -  -    -    
+  -   -                -    -
+  -   - - - - - - -  - -    -
+  -                         -  
+  -                         -  
+  -                         -  
+  - - - - - - - - - - - - - -
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+spec:
+  containers:
+    - name: client
+      image: gallagher94/multi-client
+      ports:
+        - containerPort: 3000
+
+We are telling the Pod which containers we want to run within it.
+The name is for the developers and k8 doent care about it - usualy use for logging.
+The name prop could be used if we have multiple containers inside the one Pod, 
+we could use name to talk between containers in the same host Pod.
+image: is the built image that the container will have within it.
+ports: is the port mapping, expose port 3000 to the outisde world for this container.
+The ability to expose port 3000 to the outside world is a bit more complicated
+and hence why we have a client-node-port.yml to help us - Service Object type.
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+metadata:
+  name: client-pod
+  labels:
+    component: web
+
+name is for the name of the pod we have created, used alot for loggin in cmd line.
+labels....
+
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+client-node-port.yml
+
+commonly used object type is a Service. 
+A service is used to set up networking within a K8s cluster.
+
+Services have 4 subtypes
+  - ClusterIP
+  - NodePort
+  - LoadBalancer
+  - Ingress
+
+  spec:
+  type: NodePort
+  ports:
+    - ports: 3050
+      targetPort: 3000
+      nodePort: 31515
+
+type:  ...
+
+Within our client-node-port.yml Service file, we specifiled a subtype of 
+NodePort. We are making a nodePort Service.
+
+NodePort Service - Exposes a container to the outside world.
+( Only used for Development NOT for Production )
+
+
+On our Computer
+    Open Chrome and visit out Multi-client-app via URL
+        -
+          -
+            -> Kubernetes Node (created by miniKube on local PC)
+
+
+Within the Kubernetes node
+
+  multi-client container is running within a k8 Pod. 
+  This Pod is running within a Kubernetes node.
+  A Service - subtype NodePort  is running within thei Kubernetes node.
+  A Kuve proxy is within the Kubernetes node.
+
+  Kube proxy is the one window to the outside world. All incoming and outgoing 
+  traffic goes through this proxy.
+  This proxy will look at the request and forward it to the correct k8 service
+  for our example it will forward it to the Service NodePort.
+  The Service NodePort will then forward the traffic to the port on the container running inside the pod.
+
+
+  selector:
+    component: web
+
+
+  We use label selector system. Labels and Selectors link to each other.
+  We dont need to use component, but this is convention. As long as keys match up.
+
+  Within the configuration file for the Pod, we had a property called component:web
+  this sat within the metadata -> labels -> component -> web
+
+  When the service file is run, it will check the selector value, see component: web
+  and it will know this service file should be applied to any Pod that matches that
+  key - value pair. It will apply the port mapping to the Pod matching the pairing.
+
+
+  ports:
+    - port: 3050
+      targetPort: 3000
+      nodePort: 31515
+
+
+All ports we want opened in the target object. ports is an array!!
+Container Port and targetPort map to each other from the pod.yml and service.yml
+
+port property is the port another Pod within the same Cluster can access.
+So if we have two Pods runing in the Cluster that want to talk to each other, they
+will send traffic to the port value defined.
+
+targetPort property is the port inside the Pod we want to open up traffic to.
+This Pod will accept traffic to Port 3000 - in our code we are listening on this port.
+
+nodePort property is the one the Devs use. Its the port us Devs will 
+use to see out app in the browser. 
+http:/localhost/app:31515
+Its our local running port to access the Pod. (between 300000-32767)
+If you dont specify one, the computer will automatically assign you one.
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+client-cluster-ip.yaml
+
+Very Similar to NodePort yaml As both are network services.
+ClusterIP does not have a node port.
+ClusterIP needs a Seector so it knows what k8 Objects it should apply too.
+
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+database-persistent-volume-claim.yaml
+
+a volume claim is attached to a Pod config. It is not a storage medium
+We pass this Pod config to k8's which will then find the volume we have 
+asked for in this claim.
+
+There are 3 tyes of access modes: 
+RedWriteOnce - Can be used by a Single Node
+RedOnlyMany - Multiple nodes can read from this at the same time
+ReadWriteMany- Can be read and written to by many nodes at the same time
+
+When this config file goes to k8's and k8's looks for the storage Volume 
+you have requested, it will also check the accessMode - the storage medium
+it finds must match all the rules you defined in the config claim.
+
+storage: 2Gi 
+Just size of storage we require - 2GB.
+
+There are certain values that k8’s will set by default within a claim.yaml file.
+K8’s will allocate this storage within your Hard Drive. 
+Within the k8 config you can see this kubectl get storageclass
+This will show you where the data will be written to. When using k8’s in cloud, 
+i.e in was, AWS Block Store will be used to assigned persistent Volumes.
+(k8s website Storage provisioner will tell you where it uses for 
+default on cloud platforms)
+We did not use StorageClassName as a property in our caim.yaml file.
+We did not need to do that as we are happy using the default values.
+We can do that when we deploy to AWS too, it will  point to the default location.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+
+To apply these configuation files to KubeCtl 
+
+kubectl apply -f client-node-port.yml
+kubectl apply -f client-pod.yml
+
+To access the k8 pods running locally we need to access it through minikube and
+not localhost.
+minikube ip / port we gave it i.e 31515
+
+
+Apply multiple k8 files 
+kubectl apply -f k8s
+Assume all your files are within k8s folder. And you are above that level in cmd.
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+
+Important note. As we got more advanced we leanred that creating Pods directly
+by config file was bad practice. Instead we leanred we should use a Deployment
+config file to create our pods. 
+
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+client-Deployment.yaml
+
+
+apiVersion: apps/v1 -- Just a different type than the pods.
+kind: Deployment  -- Our kind is now Deployment - a type we can have as it 
+      exists within app/v1
+
+metadata: name: client-deployment  --  The name of our deployment file 
+
+template: All properties inside the tempalte section are configuration for 
+          every pod created by this config file.
+          Every pod will have the label of web 
+
+
+Replicas : Number of differnt pods this deployment is meant to make. 
+           If we have 5 replicas, we will create 5 identical pods, identical!
+
+Selector:  The deployment reaches out to the master and asks it to create the Pod
+           after giving the master the details it needs to create the pod.
+           The Master then creates the Pod.
+           After the Pod has been created,the master wants to get a handle on the Pod.
+           The way it gets this handle is through the selector value.
+           Label of component: web
+           It is possible to have multiple labels assinged for a deployment, but
+           we might only want to get a handle on certain pods with certain labels 
+           assinged to them. i.e we have web home and inbox labels on four pods
+           but one pod only has one label of inbox. We only want to get a hold of
+           pods with home label, we define this in the Selector and we only get
+           hold of three pods.
+
+
+Within the postgress-deployment.yaml 
+
+We added in a section :
+
+      volumes:
+        - name: postgress-storage
+          persistentVolumeClaim:
+            claimName: database-persistent-volume-claim
+
+
+This is what sets up the logic telling the container to reach outside the Pod 
+and look at this Service for the data it needs.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+ingress-service.yaml 
+
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+
+The annotations is used to cut off parts of the request ( video 218)
+
+
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              serviceName: client-cluster-ip-service
+              servicePort: 3000
+          - path: /api/
+            backend:
+              serviceName: server-cluster-ip-service
+              servicePort: 5000
+
+
+The rules are saying there are two possible paths that 
+traffic can be sent to;
+
+either just /
+or /api
+
+then we send the request to the relevent service that governs a set of 
+pods that will handle the request.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
