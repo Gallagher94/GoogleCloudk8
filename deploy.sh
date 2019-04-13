@@ -11,6 +11,6 @@ docker push gallagher94/mulit-server:$GIT_SHA
 docker push gallagher94/mulit-worker:$GIT_SHA
 
 kubectl apply -f k8s
-kubectl set image deployment/server-deployment server=stephengrider/multi-server:$GIT_SHA
+kubectl set image deployment/server-deployment server=gallagher94/multi-server:$GIT_SHA
 kubectl set image deployment/client-deployment client=gallagher94/multi-client:$GIT_SHA
-kubectl set image deployment/worker-deployment worker=stephengrider/multi-worker:$GIT_SHA
+kubectl set image deployment/worker-deployment worker=gallagher94/multi-worker:$GIT_SHA
